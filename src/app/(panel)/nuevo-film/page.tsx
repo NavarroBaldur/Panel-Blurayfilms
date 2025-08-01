@@ -50,7 +50,7 @@ export default function NewFilmPage() {
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const [form, setForm] = useState<Omit<Film, 'id'> & { id?: string | null } >({
+  const [form, setForm] = useState<Omit<Film, "id" | "updated_at"> & { id?: string | null }>({
     id: null,
     title: "",
     year_film: "",
