@@ -1,4 +1,3 @@
-// src/app/(panel)/nuevo-film/page.tsx
 "use client"
 
 import { useState, useRef, useEffect } from "react"
@@ -15,6 +14,8 @@ import {
 // Componentes de UI (shadcn/ui)
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+// Importa los componentes de Dialog necesarios
+import { Dialog2, DialogContent2, DialogDescription2, DialogHeader2, DialogTitle2, DialogTrigger2 } from "@/components/ui/dialog2"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
   Select,
@@ -34,6 +35,10 @@ import { toast } from "sonner"
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
 
+// Importa el componente MovieSearch
+import { MovieSearch } from "@/components/MovieSearch";
+
+
 // Cargar dinámicamente los componentes que causan problemas de hidratación
 const DynamicGenreMultiSelect = dynamic(() => import('@/components/genre-multi-select').then(mod => mod.GenreMultiSelect), { ssr: false });
 const DynamicMultiSelectType = dynamic(() => import('@/components/multi-select-type').then(mod => mod.MultiSelectType), { ssr: false });
@@ -41,9 +46,9 @@ const DynamicMultiSelectType = dynamic(() => import('@/components/multi-select-t
 
 // --- Constantes para los selectores (las mismas que en FilmEditDrawer) ---
 const tiposFilm = ["Pelicula", "Serie", "Animacion", "Anime", "Musical", "Documental", "Audio"]
-const compañias = ["88 films","Arrow video","Bfi","Blue underground","Code red","Criterion collection","Cualdron", "Eureka","Imprint","Indicator","Kino lorber","Mill creek entertainment","Mondo macabro","Mvd visual", "Olive films","Redemption","Scorpion releasing","Scream factory","Severin","Shameless","Shout factory", "Synapse films","Twilight time","Vestron video","Vinegar syndrome","Warner archive"]
+const compañias = ["Ninguna","88 films","Arrow video","Bfi","Blue underground","Code red","Criterion collection","Cualdron", "Eureka","Imprint","Indicator","Kino lorber","Mill creek entertainment","Mondo macabro","Mvd visual", "Olive films","Redemption","Scorpion releasing","Scream factory","Severin","Shameless","Shout factory", "Synapse films","Twilight time","Vestron video","Vinegar syndrome","Warner archive"]
 const generos = ["Accion","Animacion","Aventura","Belica","Biografia","Ciencia ficcion","Comedia","Crimen","Deporte","Documental","Drama","Familiar","Fantasia","Film noir","Historia","Misterio","Musical","Pelicula de tv","Romance","Suspenso","Terror","Western"]
-const idiomas = ["Ingles", "Latino", "Castellano", "Frances", "Aleman", "Italiano", "Portugues", "Japones", "Coreano", "Ruso", "Chino", "Arabe", "Indu", "Rumano", "Checo", "Bengali", "Turco", "Persa", "Hungaro", "Griego", "Tailandes", "Vietnamita", "Polaco", "Finlandes", "Sueco", "Noruego", "Danes", "Musica"]
+const idiomas = ["Ninguno", "Ingles", "Latino", "Castellano", "Frances", "Aleman", "Italiano", "Portugues", "Japones", "Coreano", "Ruso", "Chino", "Arabe", "Indu", "Rumano", "Checo", "Bengali", "Turco", "Persa", "Hungaro", "Griego", "Tailandes", "Vietnamita", "Polaco", "Finlandes", "Sueco", "Noruego", "Danes", "Musica"]
 
 
 export default function NewFilmPage() {
@@ -60,20 +65,19 @@ export default function NewFilmPage() {
     genres_list: [],
     genres_string: "",
     q_disks: 1,
-    special_edittion: false, // <-- ¡CORREGIDO AQUÍ!
+    special_edittion: false,
     is_premiere: false,
-    poster_url: "",
+    poster_url: "", // Aquí se guardará la URL de TMDB o la URL de Supabase Storage
     original_language: "",
     audio: "",
     subs: "",
-        // --- ¡CORRECCIÓN AQUÍ! ---
-        created_at: null, // O new Date().toISOString() si esperas un string de fecha
-        // --- FIN CORRECCIÓN ---
+    created_at: null,
   })
 
-  const [localImage, setLocalImage] = useState<string | null>(null)
+  const [localImage, setLocalImage] = useState<string | null>(null) // Para la vista previa de imagen local
   const [isSaving, setIsSaving] = useState(false)
   const [isMounted, setIsMounted] = useState(false);
+  const [isMovieSearchOpen, setIsMovieSearchOpen] = useState(false); // Estado para controlar la visibilidad del modal de búsqueda
 
   useEffect(() => {
     setIsMounted(true);
@@ -88,30 +92,45 @@ export default function NewFilmPage() {
     if (file) {
       const reader = new FileReader()
       reader.onloadend = () => {
-        setLocalImage(reader.result as string)
+        setLocalImage(reader.result as string) // Establece la imagen local para previsualización
+        setForm(prevForm => ({ ...prevForm, poster_url: "" })); // Limpia poster_url si se selecciona una imagen local
       }
       reader.readAsDataURL(file)
     }
   }
 
+  // Nueva función para manejar la selección de una película desde MovieSearch
+  const handleMovieSelected = (imageUrl: string) => {
+    setForm(prevForm => ({ ...prevForm, poster_url: imageUrl })); // Establece la URL de TMDB en el formulario
+    setLocalImage(null); // Limpia cualquier imagen local previamente seleccionada
+    setIsMovieSearchOpen(false); // Cierra el modal de búsqueda de películas
+  };
+
   const handleSave = async (event: React.FormEvent) => {
     event.preventDefault()
     setIsSaving(true)
 
-    try {
-      // Paso 1: Insertar el film primero para obtener el ID generado por Supabase
-      const dataToInsert = { ...form };
-      delete dataToInsert.id;
-      
-      dataToInsert.poster_url = null; 
+    let finalPosterUrlToDb: string | null = null; // Esta será la URL final que se guardará en Supabase
 
-      // CONVERTIR genres_list a genres_string
+    try {
+      // 1. Determinar la URL del póster para la inserción inicial
+      // Si hay una imagen local, la URL se determinará después de la inserción inicial
+      // Si hay una URL en form.poster_url (de TMDB), se usará directamente
+      const initialPosterUrlForDb = localImage ? null : (form.poster_url || null);
+
+      // Preparar datos para la inserción inicial del film
+      const dataToInsert = { ...form };
+      delete dataToInsert.id; // Supabase genera el ID
+      dataToInsert.poster_url = initialPosterUrlForDb; // Asigna la URL inicial
+
+      // Convertir genres_list a genres_string
       if (dataToInsert.genres_list && dataToInsert.genres_list.length > 0) {
         dataToInsert.genres_string = dataToInsert.genres_list.join(', ');
       } else {
-        dataToInsert.genres_string = null; // O cadena vacía, según tu preferencia
+        dataToInsert.genres_string = null;
       }
 
+      // Insertar el film para obtener el ID
       const { data: newFilmDataArray, error: insertError } = await supabase
         .from("films")
         .insert(dataToInsert)
@@ -122,19 +141,16 @@ export default function NewFilmPage() {
       }
 
       const newFilm = newFilmDataArray?.[0];
-
       if (!newFilm || !newFilm.id) {
-          throw new Error("No se pudo obtener el ID de la película recién creada.");
+        throw new Error("No se pudo obtener el ID de la película recién creada.");
       }
 
-      let finalPosterUrl: string | null = null;
-
-      // Paso 2: Si hay una imagen local, subirla usando el ID del film recién obtenido
+      // 2. Si se seleccionó una imagen local, subirla ahora usando el ID del nuevo film
       if (localImage) {
         const fileExtension = localImage.substring(localImage.indexOf('/') + 1, localImage.indexOf(';'));
         const format = fileExtension.split('/')[1];
         const fileName = `${Date.now()}.${format}`;
-        const pathInStorage = `covers/${newFilm.id}/${fileName}`;
+        const pathInStorage = `covers/${newFilm.id}/${fileName}`; // Usa el ID del nuevo film
 
         const { error: uploadError } = await supabase.storage
           .from("media")
@@ -144,42 +160,44 @@ export default function NewFilmPage() {
           })
 
         if (uploadError) {
-          throw new Error(`Error al subir imagen a Storage: ${uploadError.message}`)
+          throw new Error(`Error al subir imagen local a Storage: ${uploadError.message}`)
         }
 
         const { data: publicUrlData } = supabase.storage
           .from("media")
           .getPublicUrl(pathInStorage)
         
-        finalPosterUrl = publicUrlData.publicUrl;
+        finalPosterUrlToDb = publicUrlData.publicUrl; // Actualiza con la URL pública de la imagen subida
+      } else {
+        // Si no hay imagen local, la URL final es la que ya estaba en form.poster_url (de TMDB o vacía)
+        finalPosterUrlToDb = form.poster_url || null;
       }
 
-      // Paso 3: Actualizar el film recién creado con la URL del póster (si se subió)
-      if (finalPosterUrl) {
-          const { error: updatePosterError } = await supabase
-              .from("films")
-              .update({ poster_url: finalPosterUrl })
-              .eq("id", newFilm.id);
+      // 3. Actualizar el film recién creado con la URL final del póster si es diferente
+      // Esto es necesario si se subió una imagen local o si la URL de TMDB no se guardó en la inserción inicial.
+      if (finalPosterUrlToDb && newFilm.poster_url !== finalPosterUrlToDb) {
+        const { error: updatePosterError } = await supabase
+          .from("films")
+          .update({ poster_url: finalPosterUrlToDb })
+          .eq("id", newFilm.id);
 
-          if (updatePosterError) {
-              console.warn("Advertencia: Película creada pero hubo un error al actualizar la URL del póster.", updatePosterError);
-              toast.error(`Película creada, pero error al guardar el póster: ${updatePosterError.message}`);
-          }
+        if (updatePosterError) {
+          console.warn("Advertencia: Película creada pero hubo un error al actualizar la URL del póster.", updatePosterError);
+          toast.error(`Película creada, pero error al guardar el póster: ${updatePosterError.message}`);
+        }
       }
 
       toast.success("¡Película creada exitosamente y póster guardado!");
       router.push("/");
     } catch (error: unknown) {
       console.error("Error al crear película:", error);
-            // --- CORRECCIÓN AQUÍ ---
-            if (error instanceof Error) { // Verifica si 'error' es una instancia de la clase Error
-              toast.error(`Error al crear: ${error.message}`);
-            } else if (typeof error === 'string') { // Si es un string
-              toast.error(`Error al crear: ${error}`);
-            } else { // Para cualquier otro tipo desconocido de error
-              toast.error("Error al crear: Ocurrió un error desconocido.");
-            }
-            // --- FIN CORRECCIÓN ---
+      if (error instanceof Error) {
+        toast.error(`Error al crear: ${error.message}`);
+      } else if (typeof error === 'string') {
+        toast.error(`Error al crear: ${error}`);
+      } else {
+        toast.error("Error al crear: Ocurrió un error desconocido.");
+      }
     } finally {
       setIsSaving(false);
     }
@@ -227,11 +245,28 @@ export default function NewFilmPage() {
                       <Button type="button" variant="secondary" size="sm" onClick={handleFileSelect}>
                         Subir imagen
                       </Button>
-                      <Button type="button" variant="outline" size="sm" disabled>
-                        Buscar imagen API
-                      </Button>
+                      {/* Botón para abrir el modal de búsqueda de películas */}
+                      <Dialog2 open={isMovieSearchOpen} onOpenChange={setIsMovieSearchOpen}>
+                        <DialogTrigger2 asChild>
+                          <Button type="button" variant="outline" size="sm">
+                            Buscar imagen API
+                          </Button>
+                        </DialogTrigger2>
+                        <DialogContent2 className="fixed inset-0 w-screen h-screen max-w-full max-h-full rounded-none flex flex-col p-0 translate-x-[0%] translate-y-[0%]"> {/* Ajusta el tamaño y quita padding predeterminado */}
+                          <DialogHeader2 className="p-12 pb-0"> {/* Añade padding al header */}
+                            <DialogTitle2>Buscar Póster de Película en TMDB</DialogTitle2>
+                            <DialogDescription2>
+                              Busca una película y selecciona su póster para usarlo.
+                            </DialogDescription2>
+                          </DialogHeader2>
+                          <div className="flex-1 overflow-y-auto"> {/* Contenedor para el contenido scrollable */}
+                            <MovieSearch onMovieSelected={handleMovieSelected} />
+                          </div>
+                        </DialogContent2>
+                      </Dialog2>
                     </span>
-                    <div className="aspect-[3/4] w-[90%] h-[550px] border rounded-xl flex items-center justify-center bg-muted">
+                    <div className="aspect-[3/4] w-[80%] h-[90%] border rounded-xl flex items-center justify-center bg-muted">
+                      {/* Lógica para mostrar la imagen: localImage tiene prioridad, luego form.poster_url */}
                       {localImage ? (
                         <Image src={localImage} alt="Vista previa" className="object-cover h-full border rounded-xl" width={1920} height={1080} />
                       ) : form.poster_url ? (
