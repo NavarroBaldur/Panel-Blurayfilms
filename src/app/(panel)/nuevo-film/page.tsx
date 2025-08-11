@@ -112,6 +112,14 @@ export default function NewFilmPage() {
 
     let finalPosterUrlToDb: string | null = null; // Esta será la URL final que se guardará en Supabase
 
+    function omitFields<T extends object>(obj: T, fields: (keyof T)[]): Partial<T> {
+      const result = { ...obj };
+      for (const field of fields) {
+        delete result[field];
+      }
+      return result;
+    }
+
     try {
       // 1. Determinar la URL del póster para la inserción inicial
       // Si hay una imagen local, la URL se determinará después de la inserción inicial
@@ -119,8 +127,7 @@ export default function NewFilmPage() {
       const initialPosterUrlForDb = localImage ? null : (form.poster_url || null);
 
       // Preparar datos para la inserción inicial del film
-      const dataToInsert = { ...form };
-      delete dataToInsert.id; // Supabase genera el ID
+      const dataToInsert = omitFields(form, ['id', 'created_at']);  
       dataToInsert.poster_url = initialPosterUrlForDb; // Asigna la URL inicial
 
       // Convertir genres_list a genres_string

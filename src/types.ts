@@ -11,6 +11,7 @@ export type Film = {
   special_edittion: boolean;
   is_premiere: boolean;
   rating?: number | null;
+  estreno_date?: string | null;
   film_type: string[];
   cult_film: boolean;
   cult_brand: string | null;

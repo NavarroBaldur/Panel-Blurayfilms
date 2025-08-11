@@ -27,11 +27,6 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -43,7 +38,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Film } from "@/types"
 import { useFilmsPaginated } from "@/hooks/use-films-paginated"
 import { Badge } from "@/components/ui/badge"
-import { ArrowUpDown, MoreHorizontal, CircleMinus, CircleCheck, X, ChevronRight, ChevronLeft } from "lucide-react"
+import { ArrowUpDown, CircleMinus, CircleCheck, X, ChevronRight, ChevronLeft } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -199,6 +194,34 @@ export const columns: ColumnDef<Film>[] = [
     },
   },
   {
+    accessorKey: "created_at",
+    header: ({ column }) => (
+      <Button
+        variant="ghost"
+        onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+      >
+        Creado el
+        <ArrowUpDown className="ml-2 h-4 w-4" />
+      </Button>
+    ),
+    cell: ({ row }) => {
+      const rawDate = row.getValue("created_at");
+      const date = typeof rawDate === "string" || typeof rawDate === "number"
+        ? new Date(rawDate)
+        : null;
+    
+      const formattedDate = date
+        ? date.toLocaleDateString("es-MX", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+          })
+        : "Fecha inválida";
+    
+      return formattedDate;
+    },
+  },
+  {
     accessorKey: "cult_film",
     header: "Culto",
     cell: ({ row }) => (
@@ -220,37 +243,20 @@ export const columns: ColumnDef<Film>[] = [
   {
     id: "actions",
     cell: ({ row, table }) => {
-      const { openEditDrawer, openSingleDeleteDialog } = table.options.meta as {
-        openEditDrawer: (film: Film) => void
-        openSingleDeleteDialog: (film: Film) => void
-      }
-
+      const { openSingleDeleteDialog } = table.options.meta as {
+        openSingleDeleteDialog: (film: Film) => void;
+      };
+  
       return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <span className="sr-only">Abrir menú</span>
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <Button
-              variant="ghost"
-              className="w-full justify-start px-2 py-1.5 text-sm font-normal"
-              onClick={() => openEditDrawer(row.original)}
-            >
-              Editar
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start px-2 py-1.5 text-sm font-normal text-destructive"
-              onClick={() => openSingleDeleteDialog(row.original)}
-            >
-              Eliminar
-            </Button>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-destructive"
+          onClick={() => openSingleDeleteDialog(row.original)}
+        >
+          Eliminar
+        </Button>
+      );
     },
   },
 ]

@@ -219,6 +219,13 @@ export function FilmEditDrawer({
       // Preparar los datos del formulario para la actualización
       const updatedData: Partial<Film> = { ...form };
       
+      // Genera una nueva fecha para sobrescribir la columna 'created_at'.
+      // Esto actualizará la fecha del registro con la hora actual del cliente.
+      updatedData.created_at = new Date().toISOString(); 
+
+      // 2. AÑADE ESTA LÍNEA: Actualiza también la columna `estreno_date`
+      updatedData.estreno_date = new Date().toISOString();
+      
       // Asegurarse de que poster_url en updatedData refleje la URL final determinada
       updatedData.poster_url = finalPosterUrlToSave;
 
