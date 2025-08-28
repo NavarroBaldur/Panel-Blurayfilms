@@ -289,6 +289,13 @@ export function DataTable({ filmType = "Pelicula" }: DataTableProps) {
     // NUEVO ESTADO: Para el input de página
     const [pageInput, setPageInput] = useState(currentPage.toString()); // <-- NUEVO
 
+   // AÑADE ESTE useEffect
+   useEffect(() => {
+    // Reinicia la página a 1 cuando cambie el filtro global
+    // También podría incluir 'selectedFilmType' si no lo tienes ya en otro useEffect
+    setCurrentPage(1);
+    }, [globalFilter]);  
+
   const { data: films, totalFilms, isLoading, error, refreshData } = useFilmsPaginated(
     selectedFilmType,
     currentPage,

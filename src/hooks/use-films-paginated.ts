@@ -35,11 +35,16 @@ export const useFilmsPaginated = (
       let query = supabase.from("films").select("*", { count: "exact" })
 
       // ===========================================
-      // LÓGICA DE FILTRADO PARA LA PESTAÑA "CULT_FILM"
+      // LÓGICA DE FILTRADO PARA LAS PESTAÑAS (CORREGIDA) 🎬
       // ===========================================
       if (filmType === "Culto") {
         query = query.eq("cult_film", true)
+      } else if (filmType === "Musical") {
+        // La consulta ahora busca films que sean 'Musical' O 'Audio' usando `overlaps`
+        // Se le pasa un arreglo de strings ['Musical', 'Audio']
+        query = query.overlaps("film_type", ["Musical", "Audio"])
       } else {
+        // Para el resto de las pestañas
         query = query.contains("film_type", [filmType])
       }
       // ===========================================
@@ -56,8 +61,9 @@ export const useFilmsPaginated = (
         if (filter.id === "cult_film") {
           query = query.eq("cult_film", filter.value === "true")
         } else if (filter.id === "film_type") {
-          if (filmType !== "Culto") {
-            query = query.contains('film_type', [filter.value as string]);
+          // Asegúrate de que este filtro no anule la lógica de "Musical"
+          if (filmType !== "Culto" && filmType !== "Musical") {
+             query = query.contains('film_type', [filter.value as string]);
           }
         }
       })
