@@ -20,6 +20,7 @@ import Image from "next/image"
 type Banner = {
   id: number
   img_url: string
+  img?: string
 }
 
 export function BannerTabs() {
@@ -54,49 +55,53 @@ export function BannerTabs() {
 
       setLoadingId(banner.id)
 
-      // Eliminar anterior si existe
-      const oldPath = banner.img_url.split("/").pop()
-      if (oldPath) {
-        await supabase.storage.from("media").remove([`main/${oldPath}`])
-      }
-
-      // Subir nuevo
       const fileExt = file.name.split(".").pop()
-      const newFileName = `banner-${banner.id}-${Date.now()}.${fileExt}`
-      const fullPath = `main/${newFileName}`
+      const newFileName = `banner-${banner.id}.${fileExt}`
+      const supabasePath = `main/${newFileName}`
 
+      // 1️⃣ Subir a Supabase (sobrescribe)
       const { error: uploadError } = await supabase.storage
         .from("media")
-        .upload(fullPath, file, {
-          upsert: true,
-        })
+        .upload(supabasePath, file, { upsert: true })
 
       if (uploadError) {
-        console.error("Error al subir nuevo banner:", uploadError)
+        console.error(uploadError)
         setLoadingId(null)
         return
       }
 
-      // Obtener URL pública
-      const { data: urlData } = supabase
-        .storage
+      // 2️⃣ Obtener URL pública
+      const { data: urlData } = supabase.storage
         .from("media")
-        .getPublicUrl(fullPath)
+        .getPublicUrl(supabasePath)
 
-      const newUrl = urlData.publicUrl
+      const publicUrl = urlData.publicUrl
 
-      // Actualizar tabla
+      // 3️⃣ Enviar archivo a Cloudflare R2
+      const formData = new FormData()
+      formData.append("file", file)
+      formData.append("path", `main/${newFileName}`)
+
+      await fetch("/api/upload-to-r2", {
+        method: "POST",
+        body: formData,
+      })
+
+      // 4️⃣ Actualizar DB
       const { error: updateError } = await supabase
         .from("bannersInicio")
-        .update({ img_url: newUrl })
+        .update({
+          img_url: publicUrl,
+          img: `main/${newFileName}`,
+        })
         .eq("id", banner.id)
 
-      if (updateError) {
-        console.error("Error al actualizar el banner en DB:", updateError)
-      } else {
+      if (!updateError) {
         setBanners((prev) =>
           prev.map((b) =>
-            b.id === banner.id ? { ...b, img_url: newUrl } : b
+            b.id === banner.id
+              ? { ...b, img_url: publicUrl, img: `main/${newFileName}` }
+              : b
           )
         )
       }
