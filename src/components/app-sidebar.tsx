@@ -34,7 +34,7 @@ const data = {
     avatar: "/placeholder-profile.jpg",
   },
   navMain: [
-       {
+    {
       title: "Todos Los Films",
       url: "/",
       icon: IconListDetails,
@@ -111,8 +111,8 @@ const data = {
       url: "/banners-web",
       icon: IconPhoto,
     },
-        {
-      name : "Analíticas",
+    {
+      name: "Analíticas",
       url: "/analiticas",
       icon: IconChartBar,
     },
@@ -129,15 +129,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               asChild
               className="data-[slot=sidebar-menu-button]:!p-1.5 h-16"
             >
-                 <a href="http://blurayfilms-hd.cl/">
-                 <Image src="/blurayfilmshdLog.png" className="w-full h-16 w-auto max-w-full" alt="Blurayfilms HD" width={100} height={100}/>
-        </a>
+              <a href="http://blurayfilms-hd.cl/">
+                <Image src="/blurayfilmshdLog.png" className="w-full h-22 object-contain" alt="Blurayfilms HD" width={100} height={100} />
+              </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain}/>
+        <NavMain items={data.navMain} />
         <NavDocuments items={data.otros} />
       </SidebarContent>
       <SidebarFooter>
